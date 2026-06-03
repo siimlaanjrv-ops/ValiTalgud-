@@ -5,6 +5,7 @@ import ee.bcs.valitalgud.infrastructure.exception.ConflictException;
 import ee.bcs.valitalgud.infrastructure.exception.ForbiddenException;
 import ee.bcs.valitalgud.infrastructure.exception.NotFoundException;
 import ee.bcs.valitalgud.infrastructure.exception.ServiceUnavailableException;
+import ee.bcs.valitalgud.infrastructure.exception.TooManyRequestsException;
 import ee.bcs.valitalgud.infrastructure.exception.UnauthorizedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -41,6 +42,11 @@ public class RestExceptionHandler {
 
     @ExceptionHandler(ServiceUnavailableException.class)
     public ResponseEntity<ApiError> handleServiceUnavailable(ServiceUnavailableException ex) {
+        return buildResponse(ex.getErrorResponse());
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiError> handleTooManyRequests(TooManyRequestsException ex) {
         return buildResponse(ex.getErrorResponse());
     }
 

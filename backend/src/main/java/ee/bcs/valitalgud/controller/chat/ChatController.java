@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,7 +43,7 @@ public class ChatController {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiError.class)))
     })
-    public ChatResponseDto chat(@RequestBody ChatRequestDto request) {
-        return chatService.chat(request);
+    public ChatResponseDto chat(@RequestBody ChatRequestDto request, HttpServletRequest httpRequest) {
+        return chatService.chat(request, httpRequest.getRemoteAddr());
     }
 }

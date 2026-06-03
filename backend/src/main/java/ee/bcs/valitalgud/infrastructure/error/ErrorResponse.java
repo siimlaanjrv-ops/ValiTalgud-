@@ -48,6 +48,8 @@ public enum ErrorResponse {
     PASSWORDS_DO_NOT_MATCH("PASSWORDS_DO_NOT_MATCH", "Uued paroolid ei ühti", HttpStatus.BAD_REQUEST),
     PASSWORD_TOO_SHORT("PASSWORD_TOO_SHORT", "Parool peab olema vähemalt 8 tähemärki", HttpStatus.BAD_REQUEST),
     CHAT_MESSAGE_REQUIRED("CHAT_MESSAGE_REQUIRED", "Sõnum ei tohi olla tühi", HttpStatus.BAD_REQUEST),
+    CHAT_MESSAGE_TOO_LONG("CHAT_MESSAGE_TOO_LONG", "Sõnum on liiga pikk (max 1000 tähemärki)", HttpStatus.BAD_REQUEST),
+    CHAT_RATE_LIMITED("CHAT_RATE_LIMITED", "Palun oota veidi enne järgmist sõnumit", HttpStatus.TOO_MANY_REQUESTS),
     CHAT_NOT_CONFIGURED("CHAT_NOT_CONFIGURED", "AI vestlusrobot pole seadistatud (puudub API võti)", HttpStatus.SERVICE_UNAVAILABLE),
     CHAT_REQUEST_FAILED("CHAT_REQUEST_FAILED", "AI vestlusroboti päring ebaõnnestus, proovi hiljem uuesti", HttpStatus.BAD_GATEWAY),
     CONTACT_FIELDS_REQUIRED("CONTACT_FIELDS_REQUIRED", "Palun täitke kõik väljad", HttpStatus.BAD_REQUEST),

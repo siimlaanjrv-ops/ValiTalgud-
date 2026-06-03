@@ -7,12 +7,14 @@ import ee.bcs.valitalgud.infrastructure.config.GroqProperties;
 import ee.bcs.valitalgud.infrastructure.error.ErrorResponse;
 import ee.bcs.valitalgud.infrastructure.exception.BadRequestException;
 import ee.bcs.valitalgud.infrastructure.exception.ServiceUnavailableException;
+import ee.bcs.valitalgud.infrastructure.exception.TooManyRequestsException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,10 +30,14 @@ import org.springframework.web.client.RestClientException;
 public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
+    private static final int MAX_MESSAGE_LENGTH = 1000;
+    private static final int MAX_HISTORY_MESSAGES = 10;
+    private static final long MIN_INTERVAL_MS = 3000;
 
     private final GroqProperties properties;
     private final RestClient groqRestClient;
     private final String systemPrompt;
+    private final ConcurrentHashMap<String, Long> lastCallByIp = new ConcurrentHashMap<>();
 
     public ChatService(GroqProperties properties,
                        @Qualifier("groqRestClient") RestClient groqRestClient,
@@ -41,8 +47,9 @@ public class ChatService {
         this.systemPrompt = contextResource.getContentAsString(StandardCharsets.UTF_8).strip();
     }
 
-    public ChatResponseDto chat(ChatRequestDto request) {
+    public ChatResponseDto chat(ChatRequestDto request, String clientIp) {
         validateConfigured();
+        checkRateLimit(clientIp);
         String userMessage = validateMessage(request);
         Map<String, Object> requestBody = buildRequestBody(request, userMessage);
         GroqResponse groqResponse = callGroq(requestBody);
@@ -55,11 +62,23 @@ public class ChatService {
         }
     }
 
+    private void checkRateLimit(String clientIp) {
+        long now = System.currentTimeMillis();
+        Long prev = lastCallByIp.put(clientIp, now);
+        if (prev != null && (now - prev) < MIN_INTERVAL_MS) {
+            throw new TooManyRequestsException(ErrorResponse.CHAT_RATE_LIMITED);
+        }
+    }
+
     private String validateMessage(ChatRequestDto request) {
         if (request == null || request.getMessage() == null || request.getMessage().isBlank()) {
             throw new BadRequestException(ErrorResponse.CHAT_MESSAGE_REQUIRED);
         }
-        return request.getMessage().strip();
+        String message = request.getMessage().strip();
+        if (message.length() > MAX_MESSAGE_LENGTH) {
+            throw new BadRequestException(ErrorResponse.CHAT_MESSAGE_TOO_LONG);
+        }
+        return message;
     }
 
     private Map<String, Object> buildRequestBody(ChatRequestDto request, String userMessage) {
@@ -80,7 +99,8 @@ public class ChatService {
         if (history == null) {
             return;
         }
-        for (ChatMessageDto message : history) {
+        int start = Math.max(0, history.size() - MAX_HISTORY_MESSAGES);
+        for (ChatMessageDto message : history.subList(start, history.size())) {
             if (isValidHistoryMessage(message)) {
                 messages.add(Map.of("role", message.getRole(), "content", message.getContent()));
             }
