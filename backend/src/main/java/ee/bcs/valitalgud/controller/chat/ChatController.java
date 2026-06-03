@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequiredArgsConstructor
@@ -45,5 +46,12 @@ public class ChatController {
     })
     public ChatResponseDto chat(@RequestBody ChatRequestDto request, HttpServletRequest httpRequest) {
         return chatService.chat(request, httpRequest.getRemoteAddr());
+    }
+
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Saada sõnum AI vestlusrobotile (streaming)",
+            description = "Edastab kasutaja sõnumi Groq AI mudelile ja voogesitab vastuse token-haaval SSE kaudu.")
+    public SseEmitter streamChat(@RequestBody ChatRequestDto request, HttpServletRequest httpRequest) {
+        return chatService.streamChat(request, httpRequest.getRemoteAddr());
     }
 }
