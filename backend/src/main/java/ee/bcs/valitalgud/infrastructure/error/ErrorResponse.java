@@ -53,7 +53,7 @@ public enum ErrorResponse {
     CHAT_NOT_CONFIGURED("CHAT_NOT_CONFIGURED", "AI vestlusrobot pole seadistatud (puudub API võti)", HttpStatus.SERVICE_UNAVAILABLE),
     CHAT_REQUEST_FAILED("CHAT_REQUEST_FAILED", "AI vestlusroboti päring ebaõnnestus, proovi hiljem uuesti", HttpStatus.BAD_GATEWAY),
     CONTACT_FIELDS_REQUIRED("CONTACT_FIELDS_REQUIRED", "Palun täitke kõik väljad", HttpStatus.BAD_REQUEST),
-    CONTACT_NOT_CONFIGURED("CONTACT_NOT_CONFIGURED", "Kontaktivorm pole seadistatud (puudub API võti või saaja aadress)", HttpStatus.SERVICE_UNAVAILABLE),
+    CONTACT_NOT_CONFIGURED("CONTACT_NOT_CONFIGURED", "Kontaktivorm pole seadistatud, proovi hiljem uuesti", HttpStatus.SERVICE_UNAVAILABLE),
     CONTACT_REQUEST_FAILED("CONTACT_REQUEST_FAILED", "Sõnumi saatmine ebaõnnestus, proovi hiljem uuesti", HttpStatus.BAD_GATEWAY);
 
     private final String code;

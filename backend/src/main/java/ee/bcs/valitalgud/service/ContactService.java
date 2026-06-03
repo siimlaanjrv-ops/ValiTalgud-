@@ -1,51 +1,38 @@
 package ee.bcs.valitalgud.service;
 
 import ee.bcs.valitalgud.controller.contact.dto.ContactRequestDto;
-import ee.bcs.valitalgud.infrastructure.config.ResendProperties;
 import ee.bcs.valitalgud.infrastructure.error.ErrorResponse;
 import ee.bcs.valitalgud.infrastructure.exception.BadRequestException;
 import ee.bcs.valitalgud.infrastructure.exception.ServiceUnavailableException;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 @Service
+@RequiredArgsConstructor
 public class ContactService {
 
     private static final Logger log = LoggerFactory.getLogger(ContactService.class);
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
-    private final ResendProperties properties;
-    private final RestClient resendRestClient;
+    private final JavaMailSender mailSender;
 
-    public ContactService(ResendProperties properties,
-                          @Qualifier("resendRestClient") RestClient resendRestClient) {
-        this.properties = properties;
-        this.resendRestClient = resendRestClient;
-    }
+    @Value("${spring.mail.username:}")
+    private String fromEmail;
+
+    @Value("${contact.to-email:}")
+    private String toEmail;
 
     public void sendContactMessage(ContactRequestDto request) {
-        validateConfigured();
         validateRequest(request);
-        Map<String, Object> emailRequest = buildEmailRequest(request);
-        callResend(emailRequest);
-    }
-
-    private void validateConfigured() {
-        boolean apiKeyMissing = properties.getApiKey() == null || properties.getApiKey().isBlank();
-        boolean recipientMissing = properties.getToEmail() == null || properties.getToEmail().isBlank();
-        if (apiKeyMissing || recipientMissing) {
-            throw new ServiceUnavailableException(ErrorResponse.CONTACT_NOT_CONFIGURED);
-        }
+        sendEmail(request);
     }
 
     private void validateRequest(ContactRequestDto request) {
@@ -60,36 +47,31 @@ public class ContactService {
         }
     }
 
-    private Map<String, Object> buildEmailRequest(ContactRequestDto request) {
+    private void sendEmail(ContactRequestDto request) {
         String nameOrCompany = request.getNameOrCompany().strip();
         String senderEmail = request.getEmail().strip();
-
-        Map<String, Object> emailRequest = new LinkedHashMap<>();
-        emailRequest.put("from", "Valitalgud kontaktivorm <" + properties.getFromEmail() + ">");
-        emailRequest.put("to", List.of(properties.getToEmail()));
-        emailRequest.put("subject", "Sissetulnud päring - " + nameOrCompany);
-        emailRequest.put("reply_to", senderEmail);
-        emailRequest.put("html", buildHtmlBody(nameOrCompany, senderEmail, request.getMessage().strip()));
-        emailRequest.put("text", buildTextBody(nameOrCompany, senderEmail, request.getMessage().strip()));
-        return emailRequest;
-    }
-
-    private void callResend(Map<String, Object> emailRequest) {
+        String message = request.getMessage().strip();
         try {
-            resendRestClient.post()
-                    .uri("/emails")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getApiKey())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(emailRequest)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RestClientException ex) {
-            log.error("Resend contact email request failed", ex);
+            MimeMessage mimeMessage = buildMimeMessage(nameOrCompany, senderEmail, message);
+            mailSender.send(mimeMessage);
+        } catch (MessagingException ex) {
+            log.error("Kontaktivormi meili saatmine ebaõnnestus", ex);
             throw new ServiceUnavailableException(ErrorResponse.CONTACT_REQUEST_FAILED);
         }
     }
 
-    // Builds a tidy, brand-styled HTML email so the incoming request is easy to read in the inbox.
+    private MimeMessage buildMimeMessage(String nameOrCompany, String senderEmail, String message) throws MessagingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+        mimeMessageHelper.setFrom(fromEmail);
+        mimeMessageHelper.setTo(toEmail);
+        mimeMessageHelper.setReplyTo(senderEmail);
+        mimeMessageHelper.setSubject("Sissetulnud päring - " + nameOrCompany);
+        mimeMessageHelper.setText(buildTextBody(nameOrCompany, senderEmail, message), false);
+        mimeMessageHelper.setText(buildHtmlBody(nameOrCompany, senderEmail, message), true);
+        return mimeMessage;
+    }
+
     private String buildHtmlBody(String nameOrCompany, String senderEmail, String message) {
         return """
                 <div style="font-family: Arial, Helvetica, sans-serif; max-width: 560px; margin: 0 auto; \
